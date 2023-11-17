@@ -1,0 +1,840 @@
+---
+title: "Pesquería Erizo X y XI Regiones "
+subtitle: "Análisis Exploratorio Datos Tallas Seguimiento Bentónico 1996-2022"
+author: "Mauricio Mardones. Inv. Depto Ev. Recursos. IFOP"
+date:  "`r format(Sys.time(), '%d %B, %Y')`"
+toc: true
+toc-title: "Tabla de Contenidos"
+format:
+  html:
+    theme: cosmo
+    fontsize: 0.9em
+    linestretch: 1.7
+    html-math-method: katex
+    self-contained: true
+    embed-resources: true
+    code-tools: true
+#bibliography: reineta.bib
+#csl: apa.csl
+#link-citations: yes
+#linkcolor: blue
+---
+
+
+### Set de trabajo y librerías utilizadas
+
+```{r setup}
+knitr::opts_chunk$set(message = FALSE,
+                      warning = FALSE,
+                      fig.path="Figuras/")
+```
+
+
+```{r Xquarz_bug}
+options(bitmapType = "cairo") 
+#XQuartz is a mess, put this in your onload to default to cairo instead (https://github.com/tidyverse/ggplot2/issues/2655)
+# Lo mapas se hacen mas rapido
+# solo para IOs
+```
+
+
+```{r error=F}
+library(GGally)
+library(knitr)
+library(tidyverse)
+library(patchwork)
+library(marmap)
+library(mapproj)
+library(maps)
+library(raster)
+library(knitr)
+library(ggrepel)
+library(sf)
+library(ggthemes) # nuevos fondos
+library(readxl)
+library(performance)
+library(ggridges)
+library(see)
+```
+
+
+
+\pagebreak
+
+### Analisis exploratorio y preparación de estructuras de tallas para la evaluación de stockde erizo en las 3 macrozonas.
+
+En este documento se presentan las rutas de análisis exploratorio  de estructuras de tallas para cada una de las zonas de evaluación de stock de erizo, a saber; Macrozona X Norte, X Sur y XI, que lleva a cabo el Departamento de Evaluación de Recursos.
+
+
+\pagebreak
+
+## Exploración de datos totales
+
+Los datos se actualizan año a año y se van estructurando las estructuras de tallas para cada zona de evaluación
+
+```{r data}
+ta9622 <- read.table("Tallas_96_22.csv",sep=",", header = T)
+names(ta9622)
+dim(ta9622)
+```
+
+
+Una vez realizado el cbind, procedo a hacer los cruces con los poligonos
+
+```{r}
+pro <- read.csv2("M_Procedencias.csv", header =T, sep=";")
+proifop <- read.csv2("M_Procedencias_Poligonos.csv", header =T, sep=",")
+names(pro)
+names(proifop)
+policru<- subset(proifop, select=c(4,5, 21))
+names(policru)
+colnames(policru)<- c("PROCED", "POLIGONO", "POLIGONO_IFOP")
+names(policru)
+
+tageo9622 <- merge(policru, ta9622, by="PROCED")
+```
+
+Identifico los registros por año para comprobar lo del 2022
+
+```{r}
+table(tageo9622$ANO_ARR)
+```
+
+
+## Exploraciòn Datos Talla del 2020
+
+Una vez he generado la base completa, comienzo a explorar los datos de tallas del 2020.
+
+```{r}
+talla2022 <- tageo9622 %>% 
+  filter(ANO_ARR >= 2000)
+
+#identifico la cantidad de registros
+dim(talla2022)
+
+```
+
+```{r}
+# Comandos para crear nueva columna de zona  en funcion de los poligonos
+
+talla2022$ZONA[talla2022$POLIGONO %in% c(1,2)] <-1
+talla2022$ZONA[talla2022$POLIGONO %in% c(4,5,6,13)] <-2
+talla2022$ZONA[talla2022$POLIGONO %in% c(7,8,9,10,11,12)] <-3
+
+talla2022$ZONA<- as.factor(talla2022$ZONA)
+class(talla2022$ZONA)
+```
+
+
+Lo primero es ver diferencias entre destinos
+
+El data frame que corresponde usar es el de *"talla2020"*
+```{r fig.cap="Diferencia entre tallas y destino (Fresco e Industria)"}
+p <- ggplot(talla2022, aes(x=LONGITUD, group=DESTINO, fill= DESTINO)) +
+    geom_density( alpha=0.4, show.legend = FALSE)+
+    facet_wrap(.~ANO_ARR, scales = "free_y", ncol=5) +
+    geom_vline(xintercept = 65, color = "red")+
+    xlim(40,150)+
+    xlab("Longitud (mm.)")+
+    theme_bw()
+p 
+
+```
+
+```{r}
+p2 <- ggplot(talla2022, aes(x=LONGITUD, fill=DESTINO, group=DESTINO)) +
+    geom_histogram(position = "identity",alpha=0.3, show.legend = F) +
+    facet_wrap(.~ANO_ARR, ncol=5, scales = "free_y") +
+    #scale_fill_brewer(palette="Dark2")+
+    theme_bw() +
+    ylab("Frecuencia Absoluta")+
+    xlab("Longitud (mm.)")+
+    ggtitle("Tallas de erizo Destino Fresco e industria")+
+    geom_vline(xintercept = 65, color = "red")+
+    geom_vline(xintercept = 70, color = "blue")+
+    labs(fill="")
+p2
+```
+
+Tallas destino Fresco
+
+```{r fig.align="center"}
+M <- ggplot(talla2022 %>% 
+              filter(DESTINO==2), aes(LONGITUD)) +
+  geom_histogram(binwidth = 3,  color="grey",  alpha=0.4, fill="red", show.legend = FALSE) +
+  facet_wrap(.~ANO_ARR, ncol=5) +
+  xlim(40,150)+
+     
+  ggtitle("Tallas de erizo Destino Fresco")+
+  geom_vline(xintercept = 65, color = "red")+
+  geom_vline(xintercept = 70, color = "blue")
+M
+```
+Tallas destino Industria
+
+```{r fig.align="center", warning=F, message=F, fig.height=10}
+M <- ggplot(talla2022 %>% 
+              filter(DESTINO==1), aes(LONGITUD)) +
+  geom_histogram(binwidth = 3,  color="grey",  alpha=0.4, fill="#225ea8", show.legend = FALSE) +
+  facet_wrap(.~ANO_ARR, ncol=5) +
+  xlim(40,150)+
+  scale_x_continuous(breaks = seq(from = 40, to = 150, by = 10))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ggtitle("Tallas de erizo Destino Industria")+
+  geom_vline(xintercept = 65, color = "red")+
+  geom_vline(xintercept = 70, color = "blue")
+M
+```
+
+
+
+Estructura de tallas por año y por Zona
+```{r fig.align="center", message=F, warning=F}
+jz3 <- ggplot(talla2022 %>% 
+                drop_na(), aes(x=LONGITUD, y = as.factor(ANO_ARR), 
+                      fill = factor(stat(quantile))))+
+  stat_density_ridges(
+    geom = "density_ridges_gradient",
+    calc_ecdf = TRUE,
+    quantiles = c(0.10, 0.90)) +
+  scale_fill_manual(
+    name = "Probabilidad", values = c("#de2d26", "#fee0d2", "#de2d26"),
+    labels = c("[0, 0.10]", "[0.10, 0.90]", "[0.90, 1]"))+
+  facet_wrap(.~ZONA, ncol=3) +   
+  geom_vline(xintercept = 65, color = "red")+
+  scale_x_continuous(breaks = seq(from = 40, to = 120, by = 10))+
+  scale_y_discrete(breaks = seq(from = 1996, to = 2022, by = 1))+
+  #scale_fill_viridis_d(name="SubArea")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  xlim(40,120)+
+  xlab("Longitud (cm.)")+
+  ylab("")
+jz3
+
+```
+
+Estructura de tallas por año y por Poligono de IFOP
+```{r fig.align="center", message=F, warning=F}
+jz3 <- ggplot(talla2022 %>% 
+                drop_na(), aes(x=LONGITUD, y = as.factor(ANO_ARR), 
+                      fill = factor(stat(quantile))))+
+  stat_density_ridges(
+    geom = "density_ridges_gradient",
+    calc_ecdf = TRUE,
+    quantiles = 2, 
+    scale = 2,
+    rel_min_height = 0.1,
+    alpha=0.3) +
+  scale_fill_viridis_d(option = "D",
+                       name = "50%")+
+  facet_wrap(.~POLIGONO, ncol=4) +   
+  geom_vline(xintercept = 65, color = "red")+
+  scale_x_continuous(breaks = seq(from = 1, to = 150, by = 10))+
+  scale_y_discrete(breaks = seq(from = 1996, to = 2022, by = 1))+
+  #scale_fill_viridis_d(name="SubArea")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  xlim(20,150)+
+  xlab("Longitud (cm.)")+
+  ylab("")
+jz3
+```
+Poligono Molinet
+
+```{r}
+jz <- ggplot(talla2022 %>% 
+                drop_na(), aes(x=LONGITUD, 
+                               y = as.factor(ANO_ARR),
+                               fill=ZONA))+
+  #geom_joy(alpha=0.9) +
+  geom_density_ridges(stat = "binline", bins = 30, 
+                      scale = 1, draw_baseline = FALSE)+
+  facet_wrap(.~POLIGONO, ncol=11) +   
+  geom_vline(xintercept = 65, color = "red")+
+  scale_x_continuous(breaks = seq(from = 1, to = 10, by = 1))+
+  scale_y_discrete(breaks = seq(from = 2000, to = 2022, by = 1))+
+  scale_fill_bluebrown_d(name="SubArea",
+                         labels = c("X NORTE", "X SUR", "XI"))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  xlim(20,140)+
+  xlab("Longitud (cm.)")+
+  ylab("")
+jz
+
+```
+Poligono IFOP
+
+```{r}
+jzif <- ggplot(talla2022 %>% 
+                drop_na(), aes(x=LONGITUD, 
+                               y = as.factor(ANO_ARR),
+                               fill=ZONA))+
+  #geom_joy(alpha=0.9) +
+  geom_density_ridges(stat = "binline", bins = 30, 
+                      scale = 1, draw_baseline = FALSE)+
+  facet_wrap(.~POLIGONO_IFOP, ncol=11) +   
+  geom_vline(xintercept = 65, color = "red")+
+  #scale_x_continuous(breaks = seq(from = 1, to = 10, by = 1))+
+  scale_y_discrete(breaks = seq(from = 2000, to = 2022, by = 1))+
+  scale_fill_brewer(palette = 2,
+                         name="SubArea",
+                         labels = c("X NORTE", "X SUR", "XI"))+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  xlim(20,140)+
+  xlab("Longitud (cm.)")+
+  ylab("")
+jzif
+
+```
+
+
+```{r, fig.align="center"}
+meant <-talla2022 %>% 
+  dplyr::group_by(ANO_ARR, 
+           ZONA) %>%
+  dplyr::summarise(avg=mean(LONGITUD))
+glimpse(meant)
+```
+
+```{r, fig.align="center", message=F}
+pmea <- ggplot(meant %>% 
+                 drop_na(), 
+               aes(ANO_ARR,avg))+
+    geom_point(shape=21,  aes(fill=ZONA)) +
+    stat_smooth(method= "gam", colour='#253494')+
+    theme_bw()+ 
+    facet_wrap(.~ZONA)+
+    scale_x_continuous(breaks = seq(from = 2000, to = 2022, by = 2))+
+    #scale_y_discrete(breaks = seq(from = 1, to = 13, by = 1))+
+    theme(axis.text.x = element_text(angle = 90, hjust = 2))+
+    guides(fill = guide_legend(reverse=F))+
+    scale_fill_viridis_d(option="E",name="SubArea",
+                         labels = c("X NORTE", "X SUR", "XI"))+
+    ylim(60,100)+
+    ylab("") +
+    xlab("") +
+    ggtitle("")
+pmea
+```
+
+Ahora se genera la expansion de tallas a la frecuecnia para obtener los vectores por año y por zona
+
+```{r}
+names(ta9622)
+dftalla3<-subset(ta9622,select=c(4,8, 12, 13))
+names(dftalla3)
+dim(dftalla3)
+colnames(dftalla3) <- c( "ANO"  ,   "PROC",     "TALLA",    "FRECUENCIA")
+
+dftalla3 <- transform(dftalla3, TALLA = as.numeric(TALLA), 
+               FRECUENCIA = as.numeric(FRECUENCIA))
+dftalla3 <- na.omit(dftalla3)
+dim(dftalla3)
+head(dftalla3)
+#ver tallas grandes
+# hist y max
+```
+
+
+Identifico las procedencias de la base
+
+```{r}
+#table(dftalla4$PROC)
+unique(dftalla3$PROC)
+```
+
+\pagebreak
+
+## Expansión de tallas para todos los registros. Esto demora un poco
+
+ahora una expansión de las tallas
+
+```{r}
+#expandir long a fracuencias
+#esto no lo pude hacer para el total dado q es mucha data
+expanav<-dftalla3
+#puerto, ano, long, Frec
+head(expanav)
+
+filas<-nrow(expanav)
+
+aux<-list();auxA<-list();auxB<-list()
+for(i in 1:filas){
+  aux[[i]]<-rep(expanav[i,3],expanav[i,4])
+  auxA[[i]]<-rep(expanav[i,2],expanav[i,4])
+  auxB[[i]]<-rep(expanav[i,1],expanav[i,4])
+  
+}
+
+
+length(aux)
+length(auxA)
+length(auxB)
+#aux<-as.numeric(aux)
+```
+
+
+```{r}
+Long<-unlist(aux)
+Proc<-unlist(auxA)
+Year<-unlist(auxB)
+#Puerto<-unlist(auxB);Puerto
+tt<-cbind(Long,Proc, Year)
+colnames(tt)<-c("Long","Proc", "Year")
+dim(tt)
+head(tt)
+tt <-as.data.frame(tt)
+tt$Long <- as.numeric(as.character(tt$Long))
+tt$Year <- as.numeric(as.character(tt$Year))
+glimpse(tt)
+```
+
+Ahora hago otro cruce para juntar poligonos nuevamente
+
+```{r}
+names(pro)
+policru<- subset(pro, select=c(4,5))
+names(policru)
+colnames(policru)<- c("Proc", "POLIGONO")
+names(policru)
+dftalla5 <- merge(policru, tt, by="Proc")
+head(dftalla5)
+```
+
+
+\pagebreak
+
+# Comparaciòn de serie historica de las series
+
+Un boxplot total de tallas medias por años y por poligono
+
+Boxplot por todos los años
+
+
+```{r}
+n <-ggplot(data=dftalla5 , 
+           aes(x=Year, y=Long, group=Year, fill=Year)) +
+    geom_boxplot( show.legend = FALSE, outlier.size = 0.05) +
+    scale_fill_viridis_c(alpha=0.6) +
+    #geom_jitter(size=0.4, alpha=0.2) +
+    facet_wrap(.~POLIGONO, ncol = 3)+
+    theme_bw() +
+    geom_hline(yintercept = 65, color = "red")+
+    scale_x_continuous(breaks = seq(from = 1996, to = 2022, by = 4))+
+    theme(axis.text.x = element_text(angle = 90, hjust = 2))+
+    ggtitle('Boxplot de tallas medias de Loco congl 2') +
+    ylab('Longitud (mm.)')+
+    xlab('Años')+
+    coord_flip()
+n
+```
+
+
+Ahora voy a sacar tallas medias por año y por POLIGONO para graficar. 
+
+```{r, fig.align="center"}
+meanproc <-dftalla5 %>% 
+  group_by(POLIGONO, Year) %>%
+  summarise(avg=mean(Long))
+head(meanproc)
+dim(meanproc)
+glimpse(meanproc)
+```
+
+
+```{r, fig.align="center"}
+mn<-ggplot(meanproc, aes(Year, POLIGONO, size=avg, fill= avg))+
+    geom_point(alpha=0.5, shape=21, show.legend = T) +
+    scale_size(range = c(-4,10)) +
+    scale_x_continuous(breaks = seq(from = 1996, to = 2022, by = 1))+
+    scale_y_continuous(breaks = seq(from = 1, to = 13, by = 1))+
+    guides(fill = guide_legend(reverse=F))+
+    theme_bw()+ 
+    ylab("") +
+    xlab("") +
+    coord_flip()
+mn
+```
+
+Ahora voy a sacar tallas medias por año y por POLIGONO IFOP para graficar. 
+
+```{r, fig.align="center"}
+meanpifop <-dftalla5 %>% 
+  group_by(POLIGONO, Year) %>%
+  summarise(avg=mean(Long))
+head(meanpifop)
+dim(meanpifop)
+glimpse(meanpifop)
+
+```
+
+
+```{r, fig.align="center"}
+mnif <- ggplot(meanpifop, 
+               aes(Year, POLIGONO, size=avg, fill= avg))+
+    geom_point(alpha=0.5, shape=21, show.legend = T) +
+    scale_size(range = c(-4,8)) +
+    scale_x_discrete(breaks = seq(from = 1996, 
+                                  to = 2022, by = 2))+
+    scale_y_discrete(breaks = seq(from = 1, to = 13, 
+                                  by = 1))+
+    guides(fill = guide_legend(reverse=F))+
+    theme_bw()+ 
+    ylab("") +
+    xlab("") +
+    coord_flip()
+mnif
+```
+\pagebreak
+
+
+## Prepara los vectores para sumar a los .dat del año 2020
+
+Un plot a traves de los años de las estructuras de tallas con la linea roja de TMEL (Talla Minima Extracción Legal) de 65 mm de diametro de testa.
+
+
+### Zona X Norte
+
+```{r eval=FALSE}
+tallaxnorte <- dftalla5 %>% 
+  filter(POLIGONO==1 | POLIGONO ==2)  %>% 
+  filter(Year==2022)
+tallaxnorte$cat_long <- as.numeric(as.character(cut(x = tallaxnorte$Long, breaks = seq(40,138,2), 
+                                                  labels = seq(40,136,2), right = FALSE)))
+ttn <- table(tallaxnorte$Year, tallaxnorte$cat_long)
+
+tail(ttn, 10)
+
+# A su vez puedo generar el archivo por separado
+write.csv(ttn, "tallanorte22.csv", sep = ",", row.names = TRUE)
+
+```
+
+### Zona X Sur
+
+```{r eval=FALSE}
+tallaxsur <- dftalla5 %>% 
+  filter(POLIGONO == 4 | POLIGONO == 5 |
+                     POLIGONO == 6 | POLIGONO == 13)  %>% 
+  filter(Year==2022)
+tallaxsur$cat_long <- as.numeric(as.character(cut(x = tallaxsur$Long, breaks = seq(40,138,2), 
+                                                  labels = seq(40,136,2), right = FALSE)))
+tts <- table(tallaxsur$Year, tallaxsur$cat_long)
+
+tail(tts, 10)
+
+# A su vez puedo generar el archivo por separado
+write.csv(tts, "tallasur22.csv", sep = ",", row.names = TRUE)
+
+```
+
+### Zona XI
+
+```{r eval=FALSE}
+tallaxi <- dftalla5 %>% 
+  filter(POLIGONO == 7 |
+                   POLIGONO == 8 |
+                   POLIGONO == 9|
+                   POLIGONO == 10 |
+                   POLIGONO == 11|
+                   POLIGONO == 12)  %>% 
+  filter(Year==2022)
+tallaxi$cat_long <- as.numeric(as.character(cut(x = tallaxi$Long, breaks = seq(40,138,2), 
+                                                  labels = seq(40,136,2), right = FALSE)))
+ttxi <- table(tallaxi$Year, tallaxi$cat_long)
+
+ttxi
+
+# A su vez puedo generar el archivo por separado
+write.csv(ttxi, "tallaxi22.csv", sep = ",", row.names = TRUE)
+
+```
+
+
+## Mapa de tallas medias
+
+
+```{r}
+
+names(pro)
+procru<- subset(pro, select=c(4,19, 20))
+names(procru)
+colnames(procru)<- c("PROCED", "LATITUD", "LONGITUDD")
+names(procru)
+
+tageo9622 <- merge(ta9622, procru, by="PROCED")
+```
+
+
+
+### Tallas engrilladas
+
+ahora prceso los datos de tallas dentro de la grilla `Grid2`. debo sacar los datos `NA`
+
+
+
+```{r eval=F}
+chi <- raster::getData("GADM", country = "CHL", level = 0)
+chi@data
+#
+e <- extent(-77,-72,-46,-41)
+#e2 <- extent(-70,-35,-68,-60)
+rc <- crop(chi, e)
+proj4string(rc) <- CRS("+init=epsg:4326")
+rc3 <- st_as_sf(rc) # par dejarlo en formato geom_sf
+
+# Saco bathymetria
+bat <- getNOAA.bathy(-77,-72,-46,-41, res = 10)
+```
+
+Preparo la grilla para los diversos indicadores.
+
+```{r}
+Grid2<- rc3 %>% #rc3 es el plot base original linea 487
+  sf::st_make_grid(cellsize = c(0.125,0.125)) %>% # para que quede cuadrada
+  sf::st_cast("MULTIPOLYGON") %>%
+  sf::st_sf() %>% # objeto en spatial feature
+  dplyr::mutate(cellid = row_number()) 
+
+# la pruebo
+
+ggplot() +
+  geom_contour(data = bat,
+               aes(x=x, y=y, z=z),
+               breaks=c(0, -10, -20, -50, -100, -200, -1000),
+               linewidth=0.2,
+               colour="grey")+
+  geom_sf(data = Grid2, 
+          color="grey",  
+          fill=NA, 
+          size=0.3) +
+  geom_sf(data = rc3,  fill=NA)+
+  theme_minimal()
+
+```
+
+Cambio el formato y proyección de los datos crudos.
+
+```{r}
+
+#transformar los datos en un sf object. Aqui ojo por q no cambié el nombre de las tallas =LONGITUD
+
+df3 <- st_as_sf(tageo9622, coords = c("LONGITUDD", "LATITUD"),  
+                  crs = 4326) 
+# join data to grid; make sure to join points to grid
+# the first object drives the output geometry
+result2 <- Grid2 %>%
+  st_join(df3) %>% 
+  group_by(cellid, ANO_ARR) %>% 
+  summarize(meanL = mean(LONGITUD)) %>% 
+  filter(! is.na(meanL))
+```
+
+```{r fig.cap="Mapa de tallas medias de la pesquería del erizo promedio durante los últimos años"}
+ma <- ggplot() +
+  geom_contour(data = bat,
+               aes(x=x, y=y, z=z),
+               breaks=c(0, -10, -20, -50, -100, -200, -1000),
+               linewidth=0.2,
+               colour="grey")+
+
+  geom_sf(data=result2,  
+          aes(fill = cut(meanL,
+                         breaks = seq(40, 120, by = 10))),
+          color=NA) +
+    geom_sf(data = rc3,  fill="white")+
+  scale_fill_viridis_d(
+                    labels =  seq(40, 100, by = 10), # if you must
+                    option = "F",
+                    name = "Tallas Medias",
+                    direction=-1) +
+  theme_bw()+
+  coord_sf(crs = 4326)+
+  labs(x = "Longitude", y = "Latitude")+
+  ylim(-45.8, -41.5)+
+  xlim(-75, -72.5)
+ma
+```
+
+
+
+
+Otra forma
+
+
+```{r}
+
+
+
+inderec <- talla2022exp %>% 
+  drop_na(LONGITUD) %>% 
+  dplyr::group_by(ANO_ARR, MES_ARR, POLIGONO, ZONA, POLIGONO_IFOP) %>% 
+  dplyr::mutate(PROP = LONGITUD < 30) %>%
+  summarize(PROP = n() / nrow(talla2022exp)*100) %>% 
+  mutate(INDEX= ifelse(PROP < 0.1, -1 * inderec$INDEX2))
+
+inderec$INDEX2 <- ifelse(inderec$INDEX == "negative", -1 * inderec$INDEX2, inderec$INDEX2)
+  
+
+
+
+
+ 
+limite_superior <- round(mean(inderec$prolen3) + 
+   1.96 * sd(inderec$prolen3) / sqrt(inderec$prolen3),3)
+ limite_inferior <- round(mean(inderec$prolen3) - 
+   1.96 * sd(inderec$prolen3) / sqrt(inderec$prolen3),3)
+```
+
+
+```{r}
+indexplot <- ggplot(inderec,
+                    aes(rev(ANO_ARR),PROP))+
+  geom_bar(stat="identity",
+           position="identity",
+           aes(fill = INDEX))+
+  scale_fill_manual(values=c(positive="firebrick1",
+                             negative="black"),
+                    name="")+
+  facet_wrap(.~ZONA)+
+  theme_few()+
+  scale_x_continuous(breaks = seq(from = 2000, 
+                                to = 2020, by = 4))+
+  theme(axis.text.x = element_text(angle = 90, hjust = 2))+
+  labs(y="IR",
+       x="",
+       title = "")
+indexplot
+```
+
+
+```{r}
+inderec2 <- talla2022exp %>% 
+  dplyr::group_by(ANO_ARR, MES_ARR, POLIGONO, ZONA, POLIGONO_IFOP) %>% 
+  summarize(REC = sum(LONGITUD < 70),
+            PROPREC = mean(LONGITUD < 70))
+
+
+
+
+# Calculamos la cantidad de individuos menores a 30 mm por grupo
+df <- talla2022exp %>%
+  group_by(ANO_ARR, MES_ARR, POLIGONO, ZONA, POLIGONO_IFOP) %>%
+  mutate(cantidad_menores = ifelse(LONGITUD <= 46, 1, 0)) %>%
+  summarise(cantidad_menores = sum(cantidad_menores))
+
+# Calculamos la proporción de individuos menores a 30 mm por grupo
+df <- df %>%
+  mutate(proporcion = cantidad_menores / n())
+
+# Visualizamos los resultados
+df
+we <- ggplot(df %>% 
+                   drop_na(), 
+       aes(x = factor(ANO_ARR), 
+           y = proporcion)) +
+  geom_boxplot() +
+  labs(x = "Año", y = "Índice de Reclutamiento") +
+  facet_wrap(POLIGONO~., ncol = 3) +
+  scale_x_discrete(breaks = seq(from = 1096, to = 2022, by = 4))+
+  theme_few()+
+  labs(x="")+
+  ylim(0,10)
+we
+
+
+```
+
+
+```{r}
+inderec2$colour <- ifelse(inderec2$prolen2 < 0.5, "negative","positive")
+
+indexplot <- ggplot(inderec2,
+                    aes(rev(ANO_ARR),prolen2))+
+  geom_col(aes(fill = ifelse(prolen2 >= 0.5, "Positivo", "Negativo")), 
+           position = "identity")+
+  scale_fill_manual(values=c(positive="firebrick1",
+                             negative="black"),
+                    name="")+
+  facet_wrap(.~POLIGONO)+
+  theme_few()+
+  scale_x_continuous(breaks = seq(from = 2000, 
+                                to = 2020, by = 4))+
+  theme(axis.text.x = element_text(angle = 90, hjust = 2))+
+  labs(y="IRK",
+       x="",
+       title = "Index Recruit Krill 48.1")
+indexplot
+```
+
+
+
+
+### Tallas estaciones fijas
+
+```{r}
+EstFij <- read_csv2("~/IFOP/Erizo_SA/2019/Bancos 2018/Talla_EstFi_20011_2018.csv")
+EstFij2 <- as.data.frame(EstFij)
+```
+
+```{r}
+indice_reclu_fij <- EstFij %>%
+  group_by(year, macrozona, poligono, sector) %>%
+  mutate(PROP = talla_mm < 40) %>%
+  summarize(PROP = n() / nrow(EstFij)*10)
+
+
+# Crear gráficos en facet_wrap de barras para representar el índice de reclutamiento
+
+indfij <- ggplot(indice_reclu_fij %>% 
+                   drop_na(), 
+       aes(x = factor(year), 
+           y = PROP)) +
+  geom_boxplot() +
+  labs(x = "Año", y = "Índice de Reclutamiento") +
+  facet_wrap(poligono~., ncol = 3) +
+  scale_x_discrete(breaks = seq(from = 1, to = 12, by = 4))+
+  theme_few()+
+  labs(x="")
+indfij
+```
+
+- Indicadores:
+
+  - Seguimiento y evaluación:
+  Tallas medias por macrozona y poligono
+  Indice  de Reclutamiento por macrozona y poligono y por mes
+  CPUE por poligono y por procedencia
+  biomasa desovante por macrozona
+  F por macrozona
+  
+  - Red Estaciones fijas
+  Tallas medias
+  Cobertura algal
+  Densidades medias por sector por macrozona
+  
+  
+  
+  
+```{r}
+set.seed(123)
+datos <- data.frame(Categoria = factor(letters[1:10]),
+                    Valor = runif(10, -10, 10))
+
+ggplot(inderec, aes(x = Categoria, y = Valor)) +
+  geom_col(aes(fill = ifelse(Valor >= 0, "Positivo", "Negativo")), 
+           position = "identity") +
+  labs(x = "Categoría", y = "Valor") +
+  theme_minimal()
+```
+  
+  
+  
+
+
+
+
