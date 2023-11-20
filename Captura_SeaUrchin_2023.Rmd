@@ -21,7 +21,7 @@ format:
 ---
 
 
-# Analisis exploratorio de datos de captura de erizo de las X y XI Regiones
+# Analisis exploratorio de datos de captura de erizo de las X y XI Regiones 2023
 
 En este reporte tiene como objetivo documentar los pasos y criterios establecidos para el analisis exploratorio de los datos de bitacoras del monitoreo de capturas de la pesquería de erizo del sur de Chile.
 
@@ -41,7 +41,6 @@ knitr::opts_chunk$set(message = FALSE,
                       fig.align="center",
                       fig.path="Figuras/")
 require("knitr")
-opts_knit$set(root.dir = "~/IFOP/Erizo_SA/2023/Data_Seg_2022")
 ```
 
 
@@ -62,6 +61,7 @@ library(dbplyr)
 library(knitr)
 library(ggrepel)
 library(sf)
+library(readxl)
 #library(ggOceanMapsData) # Base de costa y profundidad
 #library(ggOceanMaps)
 library(ggthemes) # nuevos fondos
@@ -69,6 +69,9 @@ library(gridExtra)
 library(grid)
 library(ggthemes)
 library(ggalt)
+library(here)
+library(see)
+library(egg)
 ```
 
 
@@ -77,79 +80,58 @@ Para el analisis, debemos tener los siguientes archivos de trabajo;
 - data cruda de la bitacora de monitoreo de las capturas de erizo.
 - Un maestro de procedencias para el cruce de coordenadas geograficas.
 
-Ahora leemos las bases de datos.  
+Ahora leemos las bases de datos previas.  
 
 ```{r}
+
 df96_22 <- read.csv("Capt_1996_2022.csv", sep=",", header = T)
 pro <- read.csv2("M_Procedencias.csv", header =T, sep=";")
 proifop <- read.csv2("M_Procedencias_Poligonos.csv", header =T, sep=",")
-names(df96_22)
-```
-
-
-
-Identifico outliers y aspectos de la captura
-```{r}
-# A function for dotplots
-multi_dotplot <- function(filename, Xvar, Yvar){
-  filename %>%
-    ggplot(aes(x = {{Xvar}})) +
-    geom_point(aes(y = {{Yvar}})) +
-    theme_classic() +
-    coord_flip() +
-    labs(x = "Order of Data")}
-
-
-
-#Select continuous variables to plot
-
-df96_22 <- df96_22 %>%
-  mutate(order = seq(1:nrow(df96_22)))
-p1 <- multi_dotplot(df96_22, order, CAPTURA_1)
-p2 <- multi_dotplot(df96_22, order, CAPTURA_2)
-
-#Plot as a grid
-grid.arrange(p1, p2, nrow = 1)
 
 ```
 
+Ahora leo los datos del 2023 y Selecciono las columnas relativas a `df96_22`
 
-
-Identifico outliers y aspectos de la de profundidad y nº buzos
-```{r}
-#Select continuous variables to plot
-
-p3 <- multi_dotplot(df96_22, order, PROF)
-p4 <- multi_dotplot(df96_22, order, N_BUZOS)
-
-#Plot as a grid
-grid.arrange(p3, p4, nrow = 1)
-```
-Es evidente que existen registros con faenas con numeros de buzos por sobre los 5. Debe ser filtrado.
+Identifico la estructura y nombres de ambos `df`
 
 ```{r}
-freq <- ggplot(df96_22, aes(CAPTURA_2)) +
-  geom_freqpoly(bins = 6) +
-  labs(x = "Bitterling caught", y = "Frequency") +
-  theme_classic()+
-  theme(panel.border = element_rect(colour = "black", 
-                                    fill=NA, size = 1))
-freq
+df23 <- read_excel("BD_Erizo_2023.xlsx", 
+    sheet = "Capturas")
+# debo asignar georeferencias
+df23b<- df23 %>% 
+  dplyr::select(c("PROCED", "REGION",
+           "PUERTO",
+           "ANO_REG",
+           "MES_REG",
+           "DIA_REG",
+           "FUNCION",
+           "EMBARC",  
+           "CAPTURA_1",
+           "UNIDAD_1",
+           "CAPTURA_2",
+            "UNIDAD_2",
+           "DESTINO",
+           "ANO_ZAR", 
+           "MES_ZAR",
+           "DIA_ZAR",
+           "HOR_ZAR"  ,
+           "ANO_ARR"  ,
+           "MES_ARR",
+           "DIA_ARR",
+           "HOR_ARR",
+           "PROF",    
+           "HOR_BUC",
+           "N_BUZOS"))
+
+df96_22b<- df96_22 %>% 
+  dplyr::select(-("X"))
 ```
 
-Un histograma
+Uno las bases
 
 ```{r}
-histca <- ggplot(df96_22, aes(CAPTURA_2))+
-  geom_histogram(col=2, fill=2)+
-  facet_wrap(~ANO_ARR)+
-  theme_bw()+
-  xlim(0,500)+
-  ylab("Distribución Variable")
-
-histca
+df96_23 <- rbind(df96_22b, df23b)
 ```
-
 
 Ahora llamo al archivo llamado "pro", que son las procedencias con las cuales haremos el cruce para dejar la base con sus georeferencias para plotear los datos en mapas. Luego generamos el cruce de la base junto a las georeferencias
 
@@ -157,15 +139,15 @@ Ahora llamo al archivo llamado "pro", que son las procedencias con las cuales ha
 geocru<- subset(proifop, select=c(4,5,19,20, 21))
 colnames(geocru)<- c("PROCED", "POLIGONO","LATITUD", "LONGITUD", "POLIGONO_IFOP")
 head(geocru)
-captgeo <- merge(geocru, df96_22, by="PROCED")
-head(captgeo)
+df96_23geo <- merge(geocru, df96_23, by="PROCED")
+head(df96_23geo)
 ```
 
 
 Luego, agrego las variables de esfuerzo y CPUE. Esto es otra forma de calcular el rendimiento, a traves de estos pasos. Si bien la base trae una columna ya calculada por fuera del esfuerzo y rendimiento, aqui hacemos el proceso demostrativo completo. Ambas columnas generadas CPUE y CPUE2 son iguales
 
 ```{r}
-df1 <- captgeo
+df1 <- df96_23geo
 
 df1$a<-substr(df1$HOR_BUC, 1,1)
 df1$b<-substr(df1$HOR_BUC, 2,2)
@@ -181,9 +163,8 @@ df1$Hr<-ifelse(df1$HOR_BUC<100,df1$HOR_BUC/60, df1$HOR_BUC)
 df1$Hr<-ifelse(df1$HOR_BUC>99, (df1$f*10/60)+(df1$g/60)+df1$e, df1$Hr)
 df1$Hr<-ifelse(df1$HOR_BUC>999, (df1$e*10)+df1$f+(df1$g*10/60)+(df1$h/60), df1$Hr)
 names(df1)
-df2<-df1[,-6]
-df3<-df2[,c(1:29,38)]
-names(df3)
+df2<-df1[,c(1:28,35)]
+names(df2)
 ```
 
 
@@ -191,93 +172,46 @@ Ahora procedo de los filtros de horas de buceo y numero de buzos. Es de consenso
 
 ```{r}
 # Elimino campos con buzos igual a 0 y bajo 5
-df3<-subset(df3, N_BUZOS>0)
-df3 <- subset(df3, N_BUZOS<6)
-dim(df3)
-names(df3)
-# Elimino los campos con hora menores 0.0001 y mayores a 10, que sería una faena maxima de trabajo de un buzo
-df3<-subset(df3, Hr>0.0001) 
-df3<-subset(df3, Hr<10) 
-
+df3<-df2 %>% 
+  filter(N_BUZOS>0,
+         N_BUZOS<6,
+         Hr>0.0001,
+         Hr<10) %>% 
+  mutate(CPUE1 =CAPTURA_1/(Hr*N_BUZOS),
+         CPUE2 =CAPTURA_2/(Hr*N_BUZOS)) %>% 
+  filter(CPUE1<350,
+         CPUE2<350)
+         
 dim(df3)
 ```
 
-Generamos los Indices a evaluar aqui tengo tres opciones. Aquí transdformo algunas variables y a su vez calculo la CPUE como una nueva columna llamada "CPUE2".
+Generamos los Indices a evaluar aqui tengo tres opciones. Aquí transdformo algunas variables y a su vez calculo la CPUE como una nueva columna llamada `CPUE1`
 
 ```{r}
-df3$CAPTURA_1<- as.integer(df3$CAPTURA_1)
-df3$CAPTURA_2<- as.integer(df3$CAPTURA_2)
-df3$FUNCION<- as.factor(df3$FUNCION)
-
-#ahora calculo  el rendimiento
-
-df3$CPUE2<-df3$CAPTURA_1/(df3$Hr*df3$N_BUZOS)
-df3$CPUE3<-df3$CAPTURA_2/(df3$Hr*df3$N_BUZOS)
-df3<-subset(df3, CPUE2<350) 
-df3<-subset(df3, CPUE3<350) 
-hist(df3$CPUE2)
-hist(df3$CPUE3)
-
-n <- tapply(df3$CPUE2, df3$ANO_ARR, mean)
-n1 <- tapply(df3$CPUE3, df3$ANO_ARR, mean)
-
-cpue2 <- ggplot(df3 %>% 
-                  group_by(ANO_ARR) %>% 
-                  summarize(MEAN=mean(CPUE2)),
+cpue1 <- ggplot(df3 %>%
+                  filter(POLIGONO>0) %>% 
+                  group_by(ANO_ARR,
+                           POLIGONO) %>% 
+                  summarize(MEAN=mean(CPUE1, na.rm=TRUE)),
                 aes(x=ANO_ARR, y=MEAN))+
   geom_point(stat = 'identity', 
                    colour='#023e8a', 
                    fill='#023e8a', 
                    alpha=.5, size=2)+
-  geom_smooth(method = "gam")+
+  geom_smooth(method = "loess",
+              span=0.4)+
+  facet_wrap(.~POLIGONO)+
   theme_bw()+
   ylim(0, 200)
-
-cpue3 <- ggplot(df3 %>% 
-                  group_by(ANO_ARR) %>% 
-                  summarize(MEAN=mean(CPUE3)),
-                aes(x=ANO_ARR, y=MEAN))+
-  geom_point(stat = 'identity', 
-                   colour='#023e8a', 
-                   fill='#023e8a', 
-                   alpha=.5, size=2)+
-  geom_smooth(method = "gam")+
-  theme_bw()+
-  ylim(0, 200)
-
-grid.arrange(cpue2, cpue3, nrow = 1)
-
+cpue1
 ```
+El año 2023 no se consignó el datro de `CAPTURA_2`. Preguntar a CVicencio
+
 Aqui podemos identificar el primer warning respecto al rendimiento pesquero global del erizo.
 
-De aquí en mas debo trabajar con las variables `CAPTURA_2`y `CPUE3`dado que son las variables referidas a la captura en kilo que siempre hemos trabajado.
+De aquí en mas debo trabajar con las variables `CAPTURA_1`y `CPUE1`dado que son las variables referidas a la captura en kilo que siempre hemos trabajado.
 
 Se han utilizado tambien otras medidas de esfuerzo testeado durante el año 2017 en trabajo conjunto con Ana Parma
-
-```{r echo=TRUE, eval=FALSE}
-
-#Captura por Viaje
-Ifop$CALV<-Ifop$CAP_CAP 
-
-# Captura / buzo
-Ifop$CALB<-Ifop$CAP_CAP/Ifop$B_NUMCAP
-
-```
-
-
-Una vez preparada la base, comenzamos el analisis.
-
-\pagebreak 
-
-
-### Analisis exploratorio
-
-Lo primero es conocer la estructura y formato de los datos. 
-
-```{r}
-glimpse(df3)
-```
-
 
 \pagebreak 
 
