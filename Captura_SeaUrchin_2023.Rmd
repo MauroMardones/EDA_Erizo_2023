@@ -1,6 +1,6 @@
 ---
 title: "Pesquería Erizo X y XI Regiones "
-subtitle: "Análisis Exploratorio Bitácora Seguimiento Bentónico 1996-2022"
+subtitle: "Análisis Exploratorio Bitácora Seguimiento Bentónico 1996-2023"
 author: "Mauricio Mardones. Inv. Depto Ev. Recursos. IFOP"
 date:  "`r format(Sys.time(), '%d %B, %Y')`"
 toc: true
@@ -99,6 +99,7 @@ df23 <- read_excel("BD_Erizo_2023.xlsx",
     sheet = "Capturas")
 # debo asignar georeferencias
 df23b<- df23 %>% 
+  mutate(CAPTURA_2=CAPTURA_1) %>% 
   dplyr::select(c("PROCED", "REGION",
            "PUERTO",
            "ANO_REG",
@@ -163,11 +164,9 @@ df1$Hr<-ifelse(df1$HOR_BUC<100,df1$HOR_BUC/60, df1$HOR_BUC)
 df1$Hr<-ifelse(df1$HOR_BUC>99, (df1$f*10/60)+(df1$g/60)+df1$e, df1$Hr)
 df1$Hr<-ifelse(df1$HOR_BUC>999, (df1$e*10)+df1$f+(df1$g*10/60)+(df1$h/60), df1$Hr)
 names(df1)
-df2<-df1[,c(1:28,35)]
+df2<-df1[,c(1:28,37)]
 names(df2)
 ```
-
-
 Ahora procedo de los filtros de horas de buceo y numero de buzos. Es de consensos el hecho de quitar registros con numeros de buzos con NA o cero. Por otro lado, las horas de buceo se quitan nlos registros con 0 y no mayores a 10 horas, lo cual podria serr el maximo de una jornada de trabajo.
 
 ```{r}
@@ -221,7 +220,7 @@ Registros por funcion
 
 Existen varias funciones que estan relacionadas con el tipo de embarcacion, en este caso;
 
-A: Acarradeora
+1: Acarradeora
 E: Extractoras
 M: Mixta
 B:
@@ -230,110 +229,40 @@ L:
 La función de la embarcacion en este aspecto es relevante, dado que las acarreadoras, si bien contienen gran cantidad de capturas, no se pueden rastrean de acuerdo a su origen. Para ello identificamos la cantidad de registros por funcion y tambien la magnnitud de capturas asociadas para cada función.
 
 ```{r}
-# Una tabla para la cantidad de regiistros por función 
-captn <- as.data.frame(df3 %>% 
-                         group_by(FUNCION, ANO_ARR) %>%
-                         tally())
-captn
+table(df3$FUNCION)
 ```
-y de la suma de capturas por funciòn
 
-Es necesario revisar esto!!
+Identifico los poligonos con mayor capturas en 2023
 
 ```{r}
-
-df5<- df3 %>%  
-  filter(ANO_ARR==2022) %>%            
-  group_by(POLIGONO) %>% 
-  summarize(total=sum(CAPTURA_2/1000))
-#miro n una tabla de capturas totales por funcíón
 t <- ggplot(df3 %>%  
-  filter(ANO_ARR==2022) %>%            
+  filter(ANO_ARR==2023) %>%            
   group_by(POLIGONO) %>% 
-  summarise(total=sum(CAPTURA_2/1000)), aes(POLIGONO, total))+
+  summarise(total=sum(CAPTURA_1/1000)), aes(POLIGONO, total))+
   geom_bar(stat="identity", color=2, fill=2)+
   scale_x_continuous(breaks=0:13)+
   theme_bw()+
-  ylab("Captura (t.)")
+  ylab("Captura (t.) 2023")
 t
-
-# solo la tabla 
-t2 <- df3 %>%  
-  filter(ANO_ARR==2022) %>%            
-  group_by(POLIGONO) %>% 
-  summarise(total=sum(CAPTURA_2/1000)) 
-t2
-```
-Un grafico de registros por función
-
-
-```{r reg_funcion4, warning=F, include=T, message=F, fig.retina=1, echo=FALSE,fig.align="center",fig.path="Figuras/",dev=c('pdf')}
-ggplot(df3, aes(x=ANO_REG, y=CAPTURA_2, fill=FUNCION)) + 
-  geom_bar(stat = "identity" ,   alpha=.6) +
-  ylab("Registro por Función")+
-  facet_grid(FUNCION~., scales = "free_y")+
-  theme_bw()
-```
-Ahora un histograma de los registros por POligono
-
-
-```{r reg_funcion2, warning=F, include=T, message=F, echo=FALSE,fig.align="center",}
-ggplot(df3, aes(x=ANO_REG, y=CAPTURA_2/1000)) + 
-  geom_bar(stat = "identity" , colour="#a1d99b", fill=2, alpha=.3) +
-  ggtitle("Registro por Poligono")+
-  facet_wrap(POLIGONO~., ncol=4)+
-  theme_bw()
-```
-Ahora un histograma de los registros por POligono IFOP
-
-
-```{r reg_funcion}
-ggplot(df3, aes(x=ANO_REG, y=CAPTURA_2/1000)) + 
-  geom_bar(stat = "identity" , colour="#e31a1c", fill=2, alpha=.3) +
-  ggtitle("Registro por Poligono IFOP")+
-  facet_wrap(POLIGONO_IFOP~., ncol=4)+
-  theme_bw()
-```
-\pagebreak 
-
-Registros por poligonos
-
-```{r reg_polig, fig.width=6}
-ggplot(df3, aes(x=POLIGONO, y=ANO_ARR)) +
-  geom_bar(stat = "identity", fill=1) +
-  scale_x_continuous(breaks=0:13)+
-  facet_wrap(.~ANO_REG, ncol=3)+
-  ylab("Registros por Poligono")+
-  theme_bw()
 ```
 
-Ahora  las sumas de las capturas por poligono y por años 
 
-```{r capt_polig, fig.width=7}
-n <- aggregate(CAPTURA_2~ ANO_REG + POLIGONO, data = df3, FUN = sum)/1000
-
-# Por poligono y
-
-ggplot(n, aes(x=POLIGONO, y=CAPTURA_2)) + 
-  geom_bar(stat = "identity" , colour=4, fill=4, alpha=.3) +
-  scale_x_continuous(breaks=0:13)+
-  facet_wrap(~ANO_REG, ncol =  4)+
-  ggtitle("Captura total por poligono y año")+
-  ylab("Caotura (t.)")+
-  theme_bw()
-
-```
 
 \pagebreak 
 
 
 A continuación genero un plot sencillo para ver cuan correlacionadas estan las variables. Check correlations (as scatterplots), distribution and print corrleation coefficient
 
-```{r corre_var, warning=F, include=T, message=F, fig.retina=1,   echo=FALSE,fig.align="center"}
-ggcorr(df3, method = c("everything","pearson"))
+```{r corre_var}
+ggcorr(df3[,c(1,2,11, 12, 13, 25, 26, 28, 29, 30)],
+        nbreaks = 4, 
+       palette = "RdGy", 
+       label = TRUE, 
+       label_size = 3, 
+       label_color = "white",
+       hjust = 0.75)
 
 ```
-
 
 De aqui en mas, trabajamos solo con la funcion E, que son las extractoras, dado que las lanchas Acarradoras (Funcion A) no tienen un monitoreo de procedencias, por lo cual no se los puede asignar una zona. A su vez mostramos las dimensiones de la base filtrada por función.
 
@@ -346,50 +275,6 @@ Saco los datos de CPUE sobre 350 que de acuerdo a la experiencia es una cantidad
 ```{r}
 
 erizo350 <- df3 
-```
-
-promedios de Captura por año y poligo en terminos de tendencia
-
-
-```{r meancapt por año}
-meanc <- erizo350 %>% 
-               group_by(ANO_ARR, POLIGONO, POLIGONO_IFOP) %>% 
-              summarise(meancapt =mean(CAPTURA_2))
-
-me <- ggplot(meanc, aes(x=ANO_ARR, y=meancapt)) + 
-        geom_point(stat = 'identity', 
-                   colour='#cb181d', 
-                   fill='#cb181d', 
-                   alpha=.5, size=2) +
-        stat_smooth(colour='#cb181d')+
-        scale_x_continuous(breaks = seq(from = 1996, to = 2022, by = 2))+
-        theme_bw()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-        facet_wrap(.~POLIGONO, ncol =  4)+
-        ylim(0,4000)+
-        ylab('CAPTURA (t.)')+
-        xlab('')+
-        ggtitle('')
-me
-```
-
-```{r meancapt por polifop}
-mei <- ggplot(meanc, aes(x=ANO_ARR, y=meancapt)) + 
-        geom_point(stat = 'identity', 
-                   colour='#023e8a', 
-                   fill='#023e8a', 
-                   alpha=.5, size=2) +
-        stat_smooth(colour='#253494')+
-        scale_x_continuous(breaks = seq(from = 1996, to = 2022, by = 4))+
-        theme_bw()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-        facet_wrap(.~POLIGONO_IFOP, ncol =  4)+
-        ylim(0,4000)+
-        ylab('CAPTURA (t.)')+
-        xlab('')+
-        ggtitle('')
-
-mei
 ```
 
 Ahora un grafico de distribución en el espacio de la Captura.
@@ -466,9 +351,7 @@ ggplot() +
 Cambio el formato y proyección de los datos crudos.
 
 ```{r}
-
 #transformar los datos en un sf object. Aqui ojo por q no cambié el nombre de las tallas =LONGITUD
-
 df3 <- st_as_sf(erizo350, coords = c(4, 3),  
                   crs = 4326)
 # join data to grid; make sure to join points to grid
@@ -476,7 +359,7 @@ df3 <- st_as_sf(erizo350, coords = c(4, 3),
 result4 <- Grid2 %>%
   st_join(df3) %>% 
   group_by(cellid, ANO_ARR) %>% 
-  summarise(meancap = mean(CPUE3))%>% 
+  summarise(meancap = mean(CPUE1))%>% 
   filter(! is.na(meancap))
 ```
 
@@ -506,7 +389,7 @@ cp1 <- ggplot() +
 cp1
 ```
 
-```{r fig.cap="Distribucion CPUE Erizo 2020-2022"}
+```{r fig.cap="Distribucion CPUE Erizo 2023"}
 cp <- ggplot() +
   geom_contour(data = bat,
                aes(x=x, y=y, z=z),
@@ -514,7 +397,7 @@ cp <- ggplot() +
                linewidth=0.2,
                colour="grey")+
   geom_sf(data=result4 %>% 
-            filter(ANO_ARR>2016), 
+            filter(ANO_ARR %in% c(2023, 2022)), 
           aes(fill = cut(meancap,
                          breaks = seq(0, 1000, by = 50))),
           color=NA) +
@@ -523,7 +406,7 @@ cp <- ggplot() +
                     name = "CPUE erizo") +
   geom_sf(data = rc3, color="black",  fill="white")+
   theme_bw()+
-  facet_wrap(.~ANO_ARR, ncol = 3)+
+  facet_wrap(.~ANO_ARR, ncol = 2)+
   coord_sf(crs = 4326)+
   labs(x = "Longitude", y = "Latitude")+
   ylim(-45.7, -41.3)+
@@ -532,25 +415,6 @@ cp
 ```
 
 
-```{r}
-n <-ggplot(data=erizo350, 
-           aes(x=ANO_ARR, y=CPUE3, 
-               group=ANO_ARR, 
-               fill=ANO_ARR)) +
-    geom_boxplot( show.legend = FALSE, outlier.size = 0.05) +
-    scale_fill_viridis_c(alpha=0.6, option="E") +
-    #geom_jitter(size=0.4, alpha=0.2) +
-    theme_bw() +
-    facet_wrap(~POLIGONO)+
-    geom_hline(yintercept = 114.1, color = "red")+
-    scale_x_continuous(breaks = seq(from = 1996, to = 2022, by = 1))+
-    theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-    ggtitle('Capturas Medias Erizo') +
-    ylab('Longitud (mm.)')+
-    xlab('Años')+
-  ylim(0, 300)
-n
-```
 
 
 
@@ -558,11 +422,6 @@ Primer plot del comportamiento de la cpue  vs allgun factor como poligono o mes
 
 calculo las medias de esfuerzo por sector
 
-```{r}
-tableeff <- erizo350 %>% 
-  group_by(ZONA) %>% 
-  summarise(Mean=mean(Hr))
-```
 
 ```{r BoxCpueMes}
 #mes vs cpue
@@ -573,210 +432,8 @@ na <- ggplot(erizo350, aes(x=factor(ANO_ARR), y=Hr)) +
   geom_hline(yintercept = 2.1, col="blue")+
   theme_bw()+
   coord_flip()
-  
 na
 ```
-
-
-
-```{r BoxCpueMes}
-#mes vs cpue
-n <- ggplot(erizo350 %>% 
-              drop_na() %>% 
-              filter(ZONA==1), aes(x=factor(POLIGONO), y=Hr)) + 
-  geom_boxplot()+
-  #facet_wrap(.~ANO_ARR, ncol=9)+
-  geom_hline(yintercept = 0.8, col="red")+
-  geom_hline(yintercept = 2.1, col="blue")+
-  theme_bw()+
-  coord_flip()
-  
-n
-```
-
-Poligono vs Esfuerzo
-
-```{r BoxEfforAño}
-m <- ggplot(erizo350 %>% 
-              group_by(POLIGONO, ANO_ARR) %>% 
-              filter(POLIGONO>0) %>% 
-              summarise(EFF =mean(Hr)), 
-            aes(x=factor(ANO_ARR), y=EFF)) + 
-  geom_point(fill='#6a51a3', alpha=0.2)+
-  geom_smooth(colour='#253494')+
-  facet_wrap(.~POLIGONO, ncol=4)+
-  scale_x_discrete(breaks = seq(from = 1996, to = 2022, by = 10))+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-  xlab("")+
-  ylab("Esfuerzo Medio (Hr)")+
-  geom_hline(yintercept = 2.1, col="red")+
-  theme_few()
-m 
-```
-```{r}
-mz <- ggplot(erizo350 %>% 
-              group_by(ZONA, ANO_ARR) %>% 
-              drop_na(ZONA) %>% 
-              summarise(EFF =mean(Hr)), 
-            aes(x=factor(ANO_ARR), y=EFF)) + 
-  geom_point(fill='#6a51a3', alpha=0.2)+
-  geom_smooth(method = "loess")+
-  facet_wrap(.~ZONA, ncol=4)+
-  scale_x_discrete(breaks = seq(from = 1996, to = 2022, by = 10))+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-  xlab("")+
-  ylab("Esfuerzo Medio (Hr)")+
-  geom_hline(yintercept = 2.1, col="red")+
-  theme_few()
-mz 
-```
-
-Estimar Esfuerzo (Hr*NBuzos)
-
-```{r}
-erizo350eff <- erizo350 %>% 
-  mutate(EFFORT = Hr*N_BUZOS)
-
-erizo350effm <- erizo350eff %>% 
-  group_by(ZONA) %>% 
-  summarise(MEFF=mean(EFFORT))
-```
-```{r BoxCpueMes}
-#mes vs cpue
-naeff <- ggplot(erizo350eff, aes(x=factor(ANO_ARR), y=EFFORT)) + 
-  geom_boxplot()+
-  facet_wrap(.~POLIGONO, ncol=7)+
-  geom_hline(yintercept = 0.8, col="red")+
-  geom_hline(yintercept = 2.1, col="blue")+
-  theme_few()+
-  coord_flip()
-naeff
-```
-
-
-
-```{r BoxCpueMes}
-#mes vs cpue
-n <- ggplot(erizo350eff %>% 
-              drop_na() %>% 
-              filter(ZONA==3), aes(x=factor(POLIGONO), y=EFFORT)) + 
-  geom_boxplot()+
-  #facet_wrap(.~ANO_ARR, ncol=9)+
-  geom_hline(yintercept = 7.9	, col="red")+
-  geom_hline(yintercept = 5.402783, col="blue")+
-  theme_bw()+
-  coord_flip()
-  
-n
-```
-```{r}
-
- 
-mzeff <- ggplot(erizo350eff %>% 
-                  drop_na(ZONA) %>% 
-                  filter(POLIGONO>0) %>% 
-              group_by(POLIGONO, ANO_ARR, ZONA) %>% 
-              drop_na(POLIGONO) %>% 
-              summarise(EFF =mean(EFFORT)), 
-            aes(x=factor(ANO_ARR), y=EFF, color=ZONA)) + 
- geom_point(stat = 'identity',  
-                   alpha=.5, size=2) +
-        stat_smooth(colour='#cb181d')+
-  facet_wrap(.~POLIGONO, ncol=4)+
-  scale_x_discrete(breaks = seq(from = 1996, to = 2022, by = 3))+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-  scale_color_viridis_d(option="H")+
-  xlab("")+
-  ylab("Esfuerzo Medio (Hr)")+
-  theme_few()+
-  coord_flip()
-mzeff
-```
-otra viz
-
-```{r out.width='100%', message=FALSE}
-landpop <- ggplot(erizo350eff %>% 
-         group_by(POLIGONO, ANO_ARR, ZONA) %>% 
-              drop_na(POLIGONO, ZONA) %>% 
-              summarise(EFF =mean(EFFORT))) +
-  geom_lollipop(aes(x=ANO_ARR, 
-                  y=EFF,
-                  colour=ZONA), 
-              size=0.5)+
-  scale_colour_viridis_d(option="H")+
-  theme_minimal() +
-  theme(
-    panel.border = element_blank(),
-    panel.spacing = unit(0.1, "lines"),
-    strip.text.x = element_text(size = 6),
-    axis.text.x = element_text(size = 5),
-    axis.text.y = element_text(size = 5)) +
-  xlab("") +
-  ylab("Esfuerzo (Hr x Nº Buzos)") +
-  facet_wrap(.~POLIGONO, ncol=3)+
-  coord_flip()
-landpop
-```
-
-Tabla de datos por cada factor
-
-```{r}
-kable(table(erizo350$POLIGONO, erizo350$ANO_ARR), "pandoc")
-```
-
-Solo un registro de la cantidad de datos 
-
-```{r}
-my_hist <- hist(erizo350$CPUE3 , breaks=50  , plot=T)
-
-```
-
-
-```{r FrecCPUE, warning=F, include=T, message=F, fig.retina=1,fig.height=2,fig.width=4}
-my_color= ifelse(my_hist$breaks < 100, rgb(0.2,0.8,0.5,0.5) , ifelse (my_hist$breaks >=100, "purple", rgb(0.2,0.2,0.2,0.2) ))
-plot(my_hist, col=my_color , border=F , main="" , xlab="Frecuencia de CPUE", xlim=c(0,600) )
-
-```
-
-\pagebreak 
-
-
-
-```{r CaptAnoTotal1, warning=F, include=T, message=F, fig.retina=1,fig.height=5,fig.width=7}
-n <- aggregate(CAPTURA_2~ ANO_ARR + POLIGONO + POLIGONO_IFOP, data = erizo350, FUN = sum)
-# Por poligono y
-ggplot(n, aes(x=POLIGONO, y=CAPTURA_2/1000, fill=POLIGONO)) + 
-  geom_col(stat = "identity" ) +
-  facet_wrap(.~ANO_ARR, ncol =  6)+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=9))+
-  scale_x_continuous(breaks = seq(from = 0, to = 12, by = 1))+
-  theme_bw()+
-  ylab("Captura (t.)")+
-  scale_fill_viridis_c(option = "A", direction = -1, name="Captura (t.)")+
-  #geom_text(aes(label=CAPTURA_2), position=position_dodge(width=0.9), vjust=0)+
-  ggtitle("Captura por Poligono y año")
-  #coord_polar()
-
-```
-
-```{r CaptAnoTotal, warning=F, include=T, message=F, fig.retina=1,fig.height=4,fig.width=4}
-# Por poligono y
-ggplot(n, aes(x=POLIGONO_IFOP, y=CAPTURA_2/1000, fill=POLIGONO_IFOP)) + 
-  geom_col(stat = "identity" , alpha=.9) +
-  facet_wrap(.~ANO_ARR, ncol =  6)+
-  theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=9))+
-  #scale_x_continuous(breaks = seq(from = 0, to = 12, by = 1))+
-  ylab("Captura (t.)")+
-  #geom_text(aes(label=CAPTURA_2), position=position_dodge(width=0.9), vjust=0)+
-  scale_fill_brewer(palette = "Set2", name="Captura (t.)")+
-  ggtitle("Captura por Poligono y año")
-
-```
-
 
 
 Ahora se procede a generar df por cada una de las zonas de evaluacion. Estas zonas son llamadas como sigue;
@@ -799,61 +456,7 @@ class(erizo350$ZONA)
 
 
 ```{r}
-# Zona X Norte
-erizonor <- erizo350 %>% 
-         filter(ZONA %in% 1)
-# Zona XSur
-erizosur <- erizo350 %>% 
-         filter(ZONA %in% 2)
-# Zona XI
-erizoxi <- erizo350 %>% 
-         filter(ZONA %in% 3)
-
-#A su vez un graffico para ilustrar la suficiencia de data
-```
-
-
-Dimensiones de cada df.
-
-```{r}
-skimr::skim(erizonor)
-skimr::skim(erizosur)
-skimr::skim(erizoxi)
-```
-
-DIferencias de capturas entre zonas
-
-```{r Capt_Zonad}
-m1 <- erizo350 %>% 
-  filter(ANO_ARR==2022) %>% 
-  group_by(ZONA) %>% 
-  summarise(CAPTURAT=sum(CAPTURA_2/1000))
-
-
-m <- aggregate(CAPTURA_2~ ANO_ARR + ZONA, data = erizo350, FUN = sum)
-
-r <- ggplot(m %>% 
-              filter(ANO_ARR>2000), 
-            aes(x=ZONA, y=(CAPTURA_2/1000))) + 
-  geom_bar(stat = "identity" , 
-           fill="#74c476", 
-           alpha=.6, 
-           na.omit = TRUE) +
-  facet_wrap(.~ANO_ARR, ncol =5)+
-  #geom_text(aes(label=CAPTURA_2), position=position_dodge(width=0.9), vjust=0)+
-  ggtitle("Captura total por Zona y año")+
-  ylab("Captura (t.)")+
-  theme_bw()
-r
-```
-
-
-```{r Capt_Zona}
-gr20 <- erizo350 %>% 
-  filter(ANO_ARR==2022)
-gr20n <- aggregate(CAPTURA_2~ ZONA, data = gr20, sum)
-gr20n/1000
-
+skimr::skim(erizo350)
 ```
 
 
@@ -862,11 +465,10 @@ gr20n/1000
 Ahora con puntos y un LOESS
 
 ```{r}
-cpuem<- aggregate(CPUE3~ ANO_ARR + ZONA, data = erizo350, FUN = mean)
-
+cpuem<- aggregate(CPUE2~ ANO_ARR + ZONA, data = erizo350, FUN = mean)
 
 rt <- ggplot(cpuem %>% 
-               drop_na(), aes(x=ANO_ARR, y=CPUE3)) + 
+               drop_na(), aes(x=ANO_ARR, y=CPUE2)) + 
         geom_point(stat = 'identity', colour='#cb181d', fill='#cb181d', alpha=.9, size=2) +
         stat_smooth(method = "loess")+
         #scale_x_continuous(breaks = seq(from = 1996, to = 2021, by = 1))+
@@ -879,54 +481,17 @@ rt <- ggplot(cpuem %>%
         ggtitle('')
 rt
 ```
-Esto debo revisar dado que tengo diferencias con los estimados del año anterior para la ZONA XI.
-CPUE por Poligobnos IFOP
 
-```{r}
-cpuepif<- aggregate(CPUE3~ ANO_ARR + POLIGONO+ZONA, data = erizo350, FUN = mean)
 
-rt1 <- ggplot(cpuepif %>% 
-               drop_na(), aes(x=ANO_ARR, y=CPUE3)) + 
-        geom_point(stat = 'identity', colour='#4d004b', fill='#4d004b', alpha=.9, size=2) +
-        stat_smooth(method = "loess")+
-        #scale_x_continuous(breaks = seq(from = 1996, to = 2021, by = 1))+
-        theme_bw()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-        facet_wrap(.~POLIGONO, ncol =  4)+
-        ylab('CPUE (kg/hr*n Buzo)')+
-        xlab('')+
-        ylim(0,200)+
-        ggtitle('')
-rt1
-```
 
-Poligonos IFOP cruzados con Macrozonas de evaluacion
-
-```{r }
-
-rt12 <- ggplot(cpuepif %>% 
-               drop_na(), aes(x=ANO_ARR, y=CPUE3, colour=ZONA)) + 
-        geom_point(stat = 'identity',  fill='#4d004b', alpha=.9, size=2) +
-        stat_smooth(method = "loess")+
-        #scale_x_continuous(breaks = seq(from = 1996, to = 2021, by = 1))+
-        scale_color_brewer(palette = 3)+
-        theme_bw()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-        facet_wrap(.~POLIGONO_IFOP, ncol =  5)+
-        ylab('CPUE (kg/hr*n Buzo')+
-        xlab('')+
-        ylim(0,250)+
-        ggtitle('')
-rt12
-```
 
 CPUE por Poligobnos Molinet
 
 ```{r}
-cpuep<- aggregate(CPUE3~ ANO_ARR + POLIGONO+ ZONA, data = erizo350, FUN = mean)
+cpuep<- aggregate(CPUE2~ ANO_ARR + POLIGONO+ ZONA, data = erizo350, FUN = mean)
 
 rt2 <- ggplot(cpuep %>% 
-               drop_na(), aes(x=ANO_ARR, y=CPUE3, colour=ZONA)) + 
+               drop_na(), aes(x=ANO_ARR, y=CPUE2, colour=ZONA)) + 
         geom_point(stat = 'identity',  
                    fill='#006d2c',
                    alpha=.9, 
@@ -944,45 +509,32 @@ rt2 <- ggplot(cpuep %>%
 rt2
 ```
 
-CAPTURA por Poligobnos Molinet
+# Estandarizacion
 
-```{r }
-captn2<- aggregate(CAPTURA_2~ ANO_ARR + POLIGONO+ POLIGONO_IFOP+ZONA, data = erizo350, FUN = mean)
-
-rt5 <- ggplot(captn2%>% 
-               drop_na() %>% 
-                filter(POLIGONO_IFOP>0), aes(x=ANO_ARR, y=CAPTURA_2)) + 
-        geom_point(stat = 'identity',  fill='#006d2c', alpha=.9, size=2) +
-        stat_smooth(method = "loess")+
-        #scale_x_continuous(breaks = seq(from = 1996, to = 2021, by = 1))+
-        scale_color_brewer(palette = 10)+
-        theme_bw()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-        facet_wrap(.~POLIGONO, ncol =  6)+
-        ylab('Captura media Kg.')+
-        xlab('')+
-        ylim(0,5000)+
-        ggtitle('')
-rt5
+```{r}
+mod1 <- glm(CPUE2 ~ as.factor(ANO_ARR),
+            data = erizo350)
+env2 <- glm(CPUE2 ~ as.factor(ANO_ARR) + 
+              as.factor(PROF),
+            data = erizo350)
+env3 <- glm(lepro ~ Year + 
+              SIC +
+             Chl ,
+            data = envlen2r)
+env4 <- glm(lepro ~ Year + 
+              SIC +
+              Chl + 
+              SST ,
+            data = envlen2r)
+#spatial component
+env5 <- glm(lepro ~ Year + 
+              SIC +
+              Chl +
+              SST +
+              cellid,
+            data = envlen2r)
 ```
 
-```{r }
-rt6 <- ggplot(captn2%>% 
-               drop_na() %>% 
-                filter(POLIGONO_IFOP>0), aes(x=ANO_ARR, y=CAPTURA_2)) + 
-        geom_point(stat = 'identity',  fill='#006d2c', alpha=.9, size=2) +
-        stat_smooth(method = "loess")+
-        #scale_x_continuous(breaks = seq(from = 1996, to = 2021, by = 1))+
-        scale_color_brewer(palette = 10)+
-        theme_bw()+
-        theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-        facet_wrap(.~POLIGONO_IFOP, ncol =  4)+
-        ylab('Captura media Kg.')+
-        xlab('')+
-        ylim(0,5000)+
-        ggtitle('')
-rt6
-```
 
 \pagebreak
 
@@ -991,7 +543,7 @@ rt6
 Una vez concluido el analisis exploratorio y aplicacion de filtros de la base de bitacoras de capturas, procedemos a generar una base de uso para la estandarización del indice de abunmdancia para cada zona de evaluación del erizo del sur.
 
 ```{r eval=FALSE, echo=TRUE}
-write.csv(cpuem, "datacpue_erizo_96_22.csv", sep=" ", row.names = F)
+write.csv(cpuem, "datacpue_erizo_96_23.csv", sep=" ", row.names = F)
 
 ```
 
