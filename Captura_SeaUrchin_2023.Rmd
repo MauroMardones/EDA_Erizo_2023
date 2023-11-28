@@ -361,6 +361,12 @@ result4 <- Grid2 %>%
   group_by(cellid, ANO_ARR) %>% 
   summarise(meancap = mean(CPUE1))%>% 
   filter(! is.na(meancap))
+
+resultcap <- Grid2 %>%
+  st_join(df3) %>% 
+  group_by(cellid, ANO_ARR) %>% 
+  summarise(meancatch = mean(CAPTURA1))%>% 
+  filter(! is.na(meancatch))
 ```
 
 ```{r fig.cap="Distribucion CPUE Erizo total"}
@@ -403,9 +409,17 @@ cp <- ggplot() +
           color=NA) +
   scale_fill_brewer(labels =  seq(0, 500, by = 50), # if you must
                     palette = "Purples",
-                    name = "CPUE erizo") +
-  geom_sf(data = rc3, color="black",  fill="white")+
+                    name = "CPUE (kg/HrBuceo* NºBuzos)") +
+  geom_sf(data = rc3, 
+          color="black",  
+          fill="white")+
   theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1,
+                                   vjust=0,
+                                   size = 6),
+        axis.text.y = element_text(size = 6),
+        legend.position = "bottom")+
   facet_wrap(.~ANO_ARR, ncol = 2)+
   coord_sf(crs = 4326)+
   labs(x = "Longitude", y = "Latitude")+
@@ -459,6 +473,12 @@ class(erizo350$ZONA)
 skimr::skim(erizo350)
 ```
 
+Suma de las capturas por zona
+
+```{r}
+CATCHZONA<- aggregate(CAPTURA_1/1000~ ANO_ARR + ZONA,
+                      data = erizo350, FUN = sum)
+```
 
 
 
