@@ -695,7 +695,6 @@ Hago un test de correlación entre reclutamiento y biomasa por zona
 resultados_correlacion <- vector("list", 
                                  length = length(unique(datacorr$ZONA)))
 
-# Realizar el test de Pearson por ZONA
 for (zona_actual in unique(datacorr$ZONA)) {
   datos_zona <- subset(datacorr, ZONA == zona_actual)
   
