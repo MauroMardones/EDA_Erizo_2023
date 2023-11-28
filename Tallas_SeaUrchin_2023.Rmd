@@ -651,7 +651,7 @@ plotcorr <- ggplot(datacorr,
               se=FALSE)+
   geom_text(nudge_x = 0.1, 
             nudge_y = 0.01,
-            size=2) +  
+            size=3) +  
   labs(title = "", 
        x = "", 
        y = "Log(BD)") +
@@ -674,7 +674,7 @@ plotcorrcpue <- ggplot(datacorrcpue,
               col=2)+
   geom_text(nudge_x = 0.1, 
             nudge_y = 0.01,
-            size=2) +  
+            size=3) +  
   labs(title = "", 
        x = "Ind Reclutamiento", 
        y = "CPUE") +
@@ -692,7 +692,8 @@ plotcorr/ plotcorrcpue
 Hago un test de correlación entre reclutamiento y biomasa por zona
 ```{r}
 # Inicializar un vector para almacenar los resultados
-resultados_correlacion <- vector("list", length = length(unique(datacorr$ZONA)))
+resultados_correlacion <- vector("list", 
+                                 length = length(unique(datacorr$ZONA)))
 
 # Realizar el test de Pearson por ZONA
 for (zona_actual in unique(datacorr$ZONA)) {
