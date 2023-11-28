@@ -621,7 +621,8 @@ Bio9623 <- Bio6023 %>%
   mutate(ZONA = case_when(
            ZONA == "Biomasa Total X Norte" ~ 1,
            ZONA == "Biomasa Total X Sur" ~ 2,
-           ZONA == "Biomasa Total XI" ~ 3))
+           ZONA == "Biomasa Total XI" ~ 3)) %>% 
+  mutate(VALUELAG = lag(VALUE, 1))
 
 Reclu2 <- Reclu %>% 
   rename("VALUERECLU"=PROPLOG3) 
@@ -629,15 +630,21 @@ Reclu2 <- Reclu %>%
 datacorr <- full_join(Bio9623, Reclu2, 
                       by =c("ANO_ARR", "ZONA"))
 
-datacorrcpue<- full_join(CPUE, Reclu2, 
+
+# ordenar data CPUE
+CPUE1 <- CPUE %>% 
+  mutate(CPUELAG = lag(CPUE2, 1))
+datacorrcpue<- full_join(CPUE1, Reclu2, 
                       by =c("ANO_ARR", "ZONA"))
+
+
 ```
 
 
 ```{r}
 plotcorr <- ggplot(datacorr, 
                    aes(x = VALUERECLU,
-           y = log(VALUE), 
+           y = log(VALUELAG), 
            label = ANO_ARR)) +
   geom_point() +
   geom_smooth(method="lm",
@@ -659,7 +666,7 @@ plotcorr <- ggplot(datacorr,
 ```{r}
 plotcorrcpue <- ggplot(datacorrcpue, 
                    aes(x = VALUERECLU,
-           y = CPUE2, 
+           y = CPUELAG, 
            label = ANO_ARR)) +
   geom_point() +
   geom_smooth(method="lm",
@@ -682,10 +689,64 @@ plotcorrcpue <- ggplot(datacorrcpue,
 plotcorr/ plotcorrcpue
 ```
 
+Hago un test de correlación entre reclutamiento y biomasa por zona
+```{r}
+# Inicializar un vector para almacenar los resultados
+resultados_correlacion <- vector("list", length = length(unique(datacorr$ZONA)))
+
+# Realizar el test de Pearson por ZONA
+for (zona_actual in unique(datacorr$ZONA)) {
+  datos_zona <- subset(datacorr, ZONA == zona_actual)
+  
+  # Aplicar el test de Pearson
+  resultado_correlacion <- cor.test(datos_zona$VALUELAG, 
+                                    datos_zona$VALUERECLU,
+                                    method="pearson")
+    # Almacenar los resultados
+  resultados_correlacion[[zona_actual]] <- resultado_correlacion
+}
+
+# Imprimir los resultados
+for (zona_actual in unique(datos$ZONA)) {
+  cat("Zona:", zona_actual, "\n")
+  print(resultados_correlacion[[zona_actual]])
+  cat("\n")
+}
+
+resultados_correlacion
+```
+
+
+Hago un test de correlación entre reclutamiento y CPUE por zona
+
 
 ```{r}
-test <- cor.test(datacorrcpue$CPUE2, datacorrcpue$VALUERECLU)
+# Inicializar un vector para almacenar los resultados
+resultados_correlacioncpue <- vector("list", 
+                                     length = length(unique(datacorrcpue$ZONA)))
+
+# Realizar el test de Pearson por ZONA
+for (zona_actual in unique(datacorrcpue$ZONA)) {
+  datos_zona <- subset(datacorrcpue, ZONA == zona_actual)
+  
+  # Aplicar el test de Pearson
+  resultado_correlacioncpue <- cor.test(datos_zona$CPUELAG, 
+                                    datos_zona$VALUERECLU,
+                                    method="pearson")
+    # Almacenar los resultados
+  resultados_correlacioncpue[[zona_actual]] <- resultado_correlacioncpue
+}
+
+# Imprimir los resultados
+for (zona_actual in unique(datacorrcpue$ZONA)) {
+  cat("Zona:", zona_actual, "\n")
+  print(resultados_correlacioncpue[[zona_actual]])
+  cat("\n")
+}
+
+resultados_correlacioncpue
 ```
+
 
 
 
