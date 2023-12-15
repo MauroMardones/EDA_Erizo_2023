@@ -365,29 +365,40 @@ result4 <- Grid2 %>%
 resultcap <- Grid2 %>%
   st_join(df3) %>% 
   group_by(cellid, ANO_ARR) %>% 
-  summarise(meancatch = mean(CAPTURA1))%>% 
+  summarise(meancatch = mean(CAPTURA_1))%>% 
   filter(! is.na(meancatch))
 ```
 
-```{r fig.cap="Distribucion CPUE Erizo total"}
+```{r fig.height=3}
 cp1 <- ggplot() +
-  #geom_sf(data = polimo, color="red",  fill=NA)+
-  geom_contour(data = bat,
-               aes(x=x, y=y, z=z),
-               breaks=c(0, -10, -20, -50, -100, -200, -1000),
-               linewidth=0.2,
-               colour="grey")+
-  geom_sf(data=result4, 
+  # #geom_sf(data = polimo, color="red",  fill=NA)+
+  # geom_contour(data = bat,
+  #              aes(x=x, y=y, z=z),
+  #              breaks=c(0, -10, -20, -50, -100, -200, -1000),
+  #              linewidth=0.2,
+  #              colour="grey")+
+  geom_sf(data=result4 %>% 
+            filter(ANO_ARR %in% c(1996, 
+                                        2000,
+                                        2005, 2010, 
+                                        2015, 2020, 
+                                        2023)), 
           aes(fill = cut(meancap,
-                         breaks = seq(0, 1000, by = 50))),
+                         breaks = seq(0, 1000, by =50))),
           color=NA) +
-  scale_fill_brewer(labels =  seq(0, 500, by = 50), # if you must
+  scale_fill_brewer(labels =  seq(0, 300, by = 50), # if you must
                     palette = "Purples",
                     name = "CPUE erizo") +
-  geom_sf(data = rc3, color="black", 
+  geom_sf(data = rc3, color="grey", 
           fill="white")+
-  theme_bw()+
-  #facet_wrap(.~ANO_ARR, ncol = 3)+
+  theme_few()+
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1,
+                                   vjust=0,
+                                   size = 6),
+        axis.text.y = element_text(size = 6),
+        legend.position = "bottom")+
+  facet_wrap(.~ANO_ARR, ncol = 4)+
   coord_sf(crs = 4326)+
   labs(x = "Longitude", y = "Latitude")+
   ylim(-45.7, -41.3)+
@@ -429,6 +440,37 @@ cp
 ```
 
 
+```{r fig.height=3}
+capt <- ggplot() +
+  geom_sf(data=resultcap %>% 
+            filter(ANO_ARR %in% c(1996, 
+                                        2000,
+                                        2005, 2010, 
+                                        2015, 2020, 
+                                        2023)),  
+          aes(fill = cut(meancatch,
+                         breaks = seq(500, 3000, by = 500))),
+          color=NA) +
+  scale_fill_brewer(labels =  seq(500, 3500, by = 500), # if you must
+                    palette = "YlGn",
+                    name = "Captura (t.)") +
+  geom_sf(data = rc3, 
+          color="grey",  
+          fill="white")+
+  theme_few()+
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1,
+                                   vjust=0,
+                                   size = 6),
+        axis.text.y = element_text(size = 6),
+        legend.position = "bottom")+
+  facet_wrap(.~ANO_ARR, ncol = 4)+
+  coord_sf(crs = 4326)+
+  labs(x = "Longitude", y = "Latitude")+
+  ylim(-45.7, -41.3)+
+  xlim(-75.2, -72.6)
+capt
+```
 
 
 
@@ -491,11 +533,15 @@ rt <- ggplot(cpuem %>%
                drop_na(), aes(x=ANO_ARR, y=CPUE2)) + 
         geom_point(stat = 'identity', colour='#cb181d', fill='#cb181d', alpha=.9, size=2) +
         stat_smooth(method = "loess")+
-        #scale_x_continuous(breaks = seq(from = 1996, to = 2021, by = 1))+
-        theme_bw()+
+        scale_x_continuous(breaks = seq(from = 1996, to = 2023, by = 3))+
+        theme_few()+
         theme(axis.text.x = element_text(angle = 90, hjust = 2))+
-        facet_wrap(.~ZONA, ncol =  3)+
-        ylab('CPUE (kg/hr*n Buzo')+
+        facet_wrap(.~ZONA, 
+                   ncol =  3,
+                   labeller = labeller(ZONA = c("1" = "X Norte", 
+                                                 "2" = "X Sur",
+                                                 "3" = "XI")))+
+        ylab('CPUE (kg/hr*n Buzo)')+
         xlab('')+
         ylim(0,200)+
         ggtitle('')
@@ -527,6 +573,29 @@ rt2 <- ggplot(cpuep %>%
         ylim(0,250)+
         ggtitle('')
 rt2
+```
+```{r}
+effm<- aggregate(HOR_BUC~ ANO_ARR + ZONA, data = erizo350, FUN = mean)
+eff <- ggplot(effm %>% 
+               drop_na(), aes(x=ANO_ARR, y=HOR_BUC)) + 
+        geom_point(stat = 'identity', 
+                   colour="black", 
+                   fill="black", 
+                   alpha=.9, size=2) +
+        stat_smooth(method = "loess",
+                    col="black")+
+        scale_x_continuous(breaks = seq(from = 1996, to = 2023, by = 3))+
+        theme_few()+
+        theme(axis.text.x = element_text(angle = 90, hjust = 2))+
+        facet_wrap(.~ZONA, 
+                   ncol =  3,
+                   labeller = labeller(ZONA = c("1" = "X Norte", 
+                                                 "2" = "X Sur",
+                                                 "3" = "XI")))+
+        ylab('Horas de Buceo')+
+        xlab('')+
+        ggtitle('')
+eff
 ```
 
 # Estandarizacion

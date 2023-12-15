@@ -122,7 +122,7 @@ tageo9623 <- merge(policru, ta9623, by="PROCED")
 Identifico los registros por año para comprobar lo del 2022
 
 ```{r}
-table(tageo9623$ANO_ARR)
+table(tageo9623$DESTINO)
 ```
 
 
@@ -152,7 +152,7 @@ p <- ggplot(tageo9623,
                  show.legend = FALSE)+
     facet_wrap(.~ANO_ARR, 
                scales = "free_y", 
-               ncol=5) +
+               ncol=7) +
     geom_vline(xintercept = 65, 
                color = "red")+
     xlim(40,150)+
@@ -165,9 +165,73 @@ p
 meant <-tageo9623 %>% 
   dplyr::group_by(ANO_ARR, 
            ZONA) %>%
-  dplyr::summarise(avg=mean(LONGITUD))
+  dplyr::summarise(avg=mean(LONGITUD), na.rm = TRUE)
 glimpse(meant)
 ```
+
+
+Ahora los violin plot
+```{r}
+p1 <- ggplot(tageo9623 %>% 
+               drop_na(ZONA),
+             aes(x=ANO_ARR, y=LONGITUD, group=ANO_ARR)) + 
+  geom_violin(show.legend = NA, 
+              fill="grey", 
+              alpha=0.2)+
+  stat_summary(fun.x=median, 
+               geom="point", 
+               size=1.2, 
+               color="black")+
+  #scale_fill_viridis_d(alpha=0.6, option = "inferno") +
+  #geom_jitter(size=0.1, alpha=0.1, width = 0.3, color=2) +
+  facet_wrap(.~ZONA, ncol=3, 
+             labeller = labeller(ZONA = c(`1` = "X Norte", 
+                                          `2` = "X Sur",
+                                          `3` = "XI"))) +
+  geom_hline(yintercept = 65, color = "red")+
+  geom_hline(yintercept = 70, color = "blue")+
+  scale_x_continuous(breaks = seq(from = 1996, to = 2023, by = 1))+
+  scale_y_continuous(breaks = seq(from = 20, to = 150, by = 10))+
+  theme_few()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  ylab('Longitud (mm.)')+
+  xlab('')+
+  ylim(20,150)+
+  coord_flip()
+p1
+```
+
+
+
+rides
+```{r}
+jzif <- ggplot(tageo9623 %>% 
+                 drop_na(ZONA) %>% 
+               filter(DESTINO==1),
+               aes(x=LONGITUD, 
+                               y = as.factor(ANO_ARR),
+                               fill=ZONA,
+                               alpha=0.5))+
+  #geom_joy(alpha=0.9) +
+  geom_density_ridges(stat = "binline", bins = 40, 
+                      scale = 1.2, 
+                      show.legend = FALSE)+
+  scale_fill_viridis_d(option="G",
+                         name="SubArea",
+                         labels = c("X NORTE", "X SUR", "XI"))+
+  facet_wrap(.~ZONA, ncol=3, 
+             labeller = labeller(ZONA = c(`1` = "X Norte", 
+                                          `2` = "X Sur",
+                                          `3` = "XI"))) +   
+  theme_bw()+
+  scale_x_continuous(breaks = seq(from = 20, to = 150, by = 10))+
+   theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  geom_vline(xintercept = 65, color = "red")+
+  xlab("Longitud (mm)")+
+  ylab("")
+jzif
+```
+
 
 ```{r, fig.align="center", message=F}
 pmea <- ggplot(meant %>% 
@@ -176,20 +240,21 @@ pmea <- ggplot(meant %>%
     geom_point(shape=21,  aes(fill=ZONA)) +
     stat_smooth(method= "gam", colour='#253494')+
     theme_few()+ 
-    facet_wrap(.~ZONA)+
+    facet_wrap(.~ZONA, ncol = 3 , 
+             labeller = labeller(ZONA = c(`1` = "X Norte", 
+                                          `2` = "X Sur",
+                                          `3` = "XI"))) + 
     scale_x_continuous(breaks = seq(from = 1996, 
                                     to = 2022, 
                                     by = 2))+
     #scale_y_discrete(breaks = seq(from = 1, to = 13, by = 1))+
     theme(axis.text.x = element_text(angle = 90, 
                                      hjust = 2),
-          legend.position = "bottom")+
+          legend.position = "none")+
     guides(fill = guide_legend(reverse=F))+
-    scale_fill_viridis_d(option="E",
-                         name="SubArea",
-                         labels = c("X NORTE", "X SUR", "XI"))+
+    scale_fill_viridis_d(option="G")+
     ylim(60,100)+
-    ylab("") +
+    ylab("Tallas medias (mm)") +
     xlab("") +
     ggtitle("")
 pmea
@@ -224,14 +289,17 @@ comparo los 2 ultimos años por mes y poligono
 
 ```{r}
 jz <- ggplot(tageo9623b %>% 
-                drop_na() %>% 
-               filter(ANO_ARR %in% c(2022,2023)),
+                drop_na(ZONA) ,
              aes(x=LONGITUD,
-                 y = as.factor(MES_ARR)))+
+                 y = as.factor(ANO_ARR),
+                               fill=ZONA,
+                               alpha=0.5))+
   #geom_joy(alpha=0.9) +
-  geom_density_ridges(stat = "binline", bins = 40, 
-                      scale = 1, draw_baseline = FALSE)+
-  facet_wrap(.~ANO_ARR, ncol=2) +   
+  geom_density_ridges(stat = "density_ridges", bins = 40, 
+                      scale = 1, 
+                      draw_baseline = FALSE,
+                      show.legend = FALSE)+
+  facet_wrap(.~ZONA, ncol=3) +   
   geom_vline(xintercept = 65, color = "red")+
   #scale_x_continuous(breaks = seq(from = 1, to = 10, by = 1))+
   #scale_y_discrete(breaks = seq(from = 2000, to = 2022, by = 1))+
@@ -241,21 +309,23 @@ jz <- ggplot(tageo9623b %>%
   xlab("Longitud (cm.)")+
   ylab("")
 jz
+```
 
 
+```{r}
 p <- ggplot(tageo9623b %>% 
                 drop_na() %>% 
                filter(ANO_ARR %in% c(2022,2023)), 
             aes(x=LONGITUD, 
-                group=ANO_ARR, 
-                colour= ANO_ARR)) +
-    geom_density(alpha=0.4,
-                 show.legend = F)+
+                group=ANO_ARR,
+                color=ANO_ARR)) +
+    geom_density(alpha=0.4)+
     facet_wrap(.~ZONA, 
                scales = "free_y") +
     geom_vline(xintercept = 65, 
                color = "red")+
-  scale_colour_viridis_c(option = "H")+
+    scale_color_viridis_b(option = "H",
+                           name="AÑO")+
     xlim(40,150)+
     xlab("Longitud (mm.)")+
     theme_few()
@@ -263,8 +333,20 @@ p
 ```
 
 
+```{r}
+ta23 <- tageo9623b %>% 
+  filter(ANO_ARR==2023) %>% 
+  dplyr::select(LONGITUD)
+ta22 <- tageo9623b %>% 
+  filter(ANO_ARR==2022) %>% 
+  dplyr::select(LONGITUD)
 
+# mide las diferencias entre años
+t_student <- t.test(ta22, ta23)
+t_welch <- t.test(ta22, ta23, 
+                            var.equal = FALSE)
 
+```
 Ahora voy a sacar tallas medias por año y por POLIGONO para graficar. 
 
 ```{r, fig.align="center"}
@@ -300,21 +382,6 @@ mn
 ```
 compara los grupos de tallas por año estadisticamente
 
-
-```{r}
-ta23 <- tageo9623b %>% 
-  filter(ANO_ARR==2023) %>% 
-  dplyr::select(LONGITUD)
-ta22 <- tageo9623b %>% 
-  filter(ANO_ARR==2022) %>% 
-  dplyr::select(LONGITUD)
-
-# mide las diferencias entre años
-t_student <- t.test(ta22, ta23)
-t_welch <- t.test(ta22, ta23, 
-                            var.equal = FALSE)
-
-```
 
 
 \pagebreak
@@ -408,14 +475,10 @@ Grid2<- rc3 %>% #rc3 es el plot base original linea 487
   sf::st_sf() %>% # objeto en spatial feature
   dplyr::mutate(cellid = row_number()) 
 
+save(Grid2, file = "grillaErizo.RData")
 # la pruebo
 
 ggplot() +
-  geom_contour(data = bat,
-               aes(x=x, y=y, z=z),
-               breaks=c(0, -10, -20, -50, -100, -200, -1000),
-               linewidth=0.2,
-               colour="grey")+
   geom_sf(data = Grid2, 
           color="grey",  
           fill=NA, 
@@ -432,7 +495,11 @@ Cambio el formato y proyección de los datos crudos.
 #transformar los datos en un sf object. Aqui ojo por q no cambié el nombre de las tallas =LONGITUD
 
 dfta <- st_as_sf(tageo9623b %>% 
-                  filter(ANO_ARR>2021),
+                  filter(ANO_ARR %in% c(1996, 
+                                        2000,
+                                        2005, 2010, 
+                                        2015, 2020, 
+                                        2023)),
                 coords = c("LON", "LAT"),  
                   crs = 4326) 
 # join data to grid; make sure to join points to grid
@@ -446,12 +513,6 @@ result2 <- Grid2 %>%
 
 ```{r eval=FALSE}
 ma <- ggplot() +
-  geom_contour(data = bat,
-               aes(x=x, y=y, z=z),
-               breaks=c(0, -10, -20, -50, -100, -200, -1000),
-               linewidth=0.2,
-               colour="grey")+
-
   geom_sf(data=result2,  
           aes(fill = cut(MEANL,
                          breaks = seq(50, 120, by = 10))),
@@ -460,15 +521,16 @@ ma <- ggplot() +
   scale_fill_viridis_d(
                     labels =  seq(40, 100, by = 10), # if you must
                     option = "F",
-                    name = "Tallas Medias (cm.)",
+                    name = "Tallas Medias (mm)",
                     direction=-1) +
-  facet_wrap(.~ANO_ARR)+
-  theme_bw()+
+  facet_wrap(.~ANO_ARR, ncol = 4)+
+  theme_few()+
   theme(axis.text.x = element_text(angle = 90, 
                                    hjust = 1,
                                    vjust=0,
                                    size = 6),
-        axis.text.y = element_text(size = 6))+
+        axis.text.y = element_text(size = 6),
+        legend.position = "bottom")+
   coord_sf(crs = 4326)+
   labs(x = "Longitude", y = "Latitude")+
   ylim(-45.8, -41.5)+
@@ -653,11 +715,12 @@ plotcorr <- ggplot(datacorr,
             nudge_y = 0.01,
             size=3) +  
   labs(title = "", 
-       x = "", 
+       x = "Ind Reclutamiento", 
        y = "Log(BD)") +
   theme_few()+
   facet_wrap(.~ZONA,
-             scales = "free_x")+
+             scales = "free_x",
+             ncol=1)+
   xlim(-1,1)
 
 ```
@@ -680,13 +743,14 @@ plotcorrcpue <- ggplot(datacorrcpue,
        y = "CPUE") +
   theme_few()+
   facet_wrap(.~ZONA,
-             scales = "free_x")+
+             scales = "free_x",
+             ncol=1)+
   xlim(-1,1)
 ```
 
 
 ```{r warning=FALSE, message=FALSE}
-plotcorr/ plotcorrcpue
+plotcorr | plotcorrcpue
 ```
 
 Hago un test de correlación entre reclutamiento y biomasa por zona
